@@ -1,0 +1,156 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Codon</title>
+    <link type="text/css" href="css/ui-lightness/jquery-ui-1.8.5.custom.css" rel="stylesheet" />	
+    <script type="text/javascript" src="http://code.jquery.com/jquery.js"></script>
+    <script type="text/javascript" src="js/jquery-ui-1.8.5.custom.min.js"></script>
+    <style>
+      .element { border: 1px solid black; padding 10px; margin: 10px; display: inline-block }
+      .selected { background: #ffaa77 }
+      .deselected { background: white }
+      .invisible { display: none }
+      
+    </style>
+
+    <script>
+
+$(function () {
+
+var selected = null;
+
+var deselect = function () {
+    if (selected != null) {
+        selected.removeClass('selected');
+        selected.addClass('deselected')
+        selected = null;
+    }
+};
+
+var select = function (x) {
+    deselect();
+    x.addClass('selected');
+    x.removeClass('deselected');
+    selected = x;
+    $('#assumptions').text(x.expr.assumptions().join(' '));
+};
+
+var selectable = function (x) {
+    x.mousedown(function(e) {
+        select(x);
+        e.stopPropagation();
+    });
+    x.draggable({ containment: 'parent' });
+    return x;
+};
+
+var flatMap = function(xs, f) {
+    var ret = [];
+    for (var i in xs) {
+        ret = ret.concat(f(xs[i]));
+    }
+    return ret;
+};
+
+var apply = function (x,y) {
+    var outer;
+    outer = {
+        fun: x,
+        arg: y,
+        render: function(v) {
+            return $('<div class="element deselected"></div>').append(v(x)).append(v(y));
+        },
+        assumptions: function() { return x.assumptions().concat(y.assumptions()) },
+    };
+    return outer;
+};
+
+var variable = function (text) {
+    var outer;
+    outer = {
+        name: text,
+        render: function(v) { 
+            return $('<div class="element deselected"></div>').append(text);
+        },
+        assumptions: function() { return [text] },
+    };
+    return outer;
+};
+
+var substitution = function (free, arg, body) {
+    var outer; 
+    outer = {
+        free: free,
+        arg: arg,
+        body: body,
+        render: function(v) { 
+            return $('<div class="element deselected" style="border: double"></div>').append(
+                $('<table></table>').append(
+                    $('<tr></tr>').append(
+                        $('<td></td>').append(free + "=").append(v(arg)))).append(
+                    $('<tr></tr>').append(
+                        $('<td></td>').append(v(body)))));
+        },
+        assumptions: function() { 
+            return flatMap(body.assumptions(), function(x) {
+                if (x == free) {
+                    return arg.assumptions();
+                }
+                else {
+                    return [x];
+                }
+            }) 
+        }
+    };
+    return outer;
+};
+
+var makeUI = function (x) {
+    var ui = x.render(function(e) {
+        return makeUI(e);
+    });
+
+    ui.expr = x;
+    selectable(ui);
+
+    return ui;
+};
+
+$(document).keydown(function(e) {
+    if (selected != null && e.which == 32) {
+        var olds = selected;
+        deselect();
+        var newe = apply(olds.clone(), "z");
+        var target = olds;
+        target.replaceWith(reccodonize(newe));
+    }
+});
+
+$("#content").append(makeUI(apply(substitution("z",variable("w"),apply(variable("x"), variable("z"))), variable("y"))));
+
+});
+
+    </script>
+    
+    <script id="substitutionTmpl" type="text/x-jquery-tmpl">
+     <div>
+     <table class="element deselected" style="border: double">
+      <tr><td>${free}=${arg}</td></tr>
+      <tr><td>{{html body.ui()}}</td></tr>
+     </table>
+     </div>
+    </script>
+  </head>
+  <body>
+   
+   <div id="content" style="display: inline-block">
+   </div>
+   <br/>
+
+   <div id="assumptions">Assumptions</div>
+  
+   <div style="display: none">
+   </div>
+
+  </body>
+</html>
