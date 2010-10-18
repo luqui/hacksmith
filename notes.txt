@@ -1,1 +1,58 @@
-Possible other name:  servant, butler.  Codon is not evocative of what it does.
+Hacksmith
+---------
+
+* Show documentation about an object as you are typing/selecting it, no matter what the context.
+
+* Allow verifiable but informal documentation: NonZero(x), where NonZero
+    doesn't have a computable definition, but it is to be verified by the
+    programmer as an "assertion".  Maybe it bubbles up (seems like it should,
+    since it's a statement without proof).  What if it can't because the relevant
+    variable escapes?
+
+* Remember to commit to "write first, abstract later".  E.g. copy,paste,modify should share whatever code was not modified.
+
+* Max hates reading code -- he much prefers to debug.  Seeing concrete values, allow concrete model to interpret abstract code.
+
+* Collaborative editing.
+
+* Take for example:
+
+    int x = getch();
+    printf("%d", x);
+
+    `x` is an assumption in the second line.  But it does not imply that this
+    code is monadic -- we can't pick the second line based on the value of the
+    first.  What is the algebraic structure of this code, then?  Perhaps we can
+    treat it as an assignment, thus x is an assumption in the first line, too, and
+    one of the primitives provided by the C algebra is the ability to discharge an
+    assumption with a declaration.  
+
+v KILLER FEATURE v
+* Split-view:  abstraction/instantiation + expanded.  Work in either view.  In abstraction/instantiation view,
+    expanded view can change in multiple places at once.  In expanded view, abstraction adapts to incorporate
+    changes.
+
+
+It is easy to instantiate.  
+
+    instantiated -> subst(..., abstracted)
+
+And we can abstract any concrete code.
+
+    abstracted = ...
+    rewrite original -> subst(..., abstracted)
+
+Abstracting abstract code is easy in the same way.  Abstracting instantiated code is the hard one.
+
+    Merge 2+3 -> (x+3 | x=2)
+          2+3 -> (2+y | y=3)
+
+    2+3 -> (x+y | x=2, y=3)
+    (x+3 | x=2) -> ((x+y | y=3) | x=2)
+    (2+y | y=3) -> ((x+y | x=2) | y=3)
+
+    IOW
+    x+3 -> (x+y | y=3)
+    2+y -> (x+y | x=2)
+
+    How did we get that?
