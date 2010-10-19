@@ -65,6 +65,10 @@ var Codon = function(xs) {
     }, xs);
 };
 
+var Morphism = function(a,b,desc) {
+    return { src: a, target: b, description: desc };
+};
+
 var apply = function (x,y) {
     var outer;
     outer = new Codon({
@@ -81,8 +85,8 @@ var apply = function (x,y) {
         },
         
         commands: {
-            left: function (ui) { select(ui.children[0]) },
-            right: function (ui) { select(ui.children[1]) },
+            left: function (ui) { select(ui.childUIs[0]) },
+            right: function (ui) { select(ui.childUIs[1]) },
         },
     });
     return outer;
@@ -152,8 +156,11 @@ var substitution = function (free, arg, body) {
         },
         
         commands: {
+            left: function(ui) {
+                select(ui.childUIs[0]);
+            },
             down: function(ui) {
-                select(ui.children[1]);
+                select(ui.childUIs[1]);
             },
         },
     });
@@ -172,9 +179,9 @@ var replace = function (src, target) {
 };
 
 var globalCommands = {
-    up: function (expr) {
-        if (expr.parent) {
-            select(expr.parent.ui);
+    up: function (ui) {
+        if (ui.parentUI) {
+            select(ui.parentUI);
         }
     },
 }
@@ -198,10 +205,10 @@ $(document).keydown(function(e) {
         var cmds = selected.expr.commands;
         if (code) {
             if (cmds && cmds[code]) {
-                cmds[code]();
+                cmds[code](selected);
             }
             else if (globalCommands[code]) {
-                globalCommands[code](selected.expr);
+                globalCommands[code](selected);
             }
         }
     }
