@@ -18,7 +18,7 @@ var select = function (x) {
     $('#assumptions').empty();
     var ass = x.expr.assumptions();
     for (var i in ass) {
-        $('#assumptions').append(makeUI(varref(ass[i])));
+        $('#assumptions').append(ass[i].name);
     }
 };
 
@@ -40,32 +40,59 @@ var flatMap = function(xs, f) {
     return ret;
 };
 
+var incorporate = function(into, xs) {
+    for (var i in xs) { into[i] = xs[i] }
+    return into;
+};
+
+var Codon = function(xs) {
+    return incorporate({
+        render: function() {
+            var chuis = [];
+            var self = this;
+            var ui = self.createUI(function (i) {
+                return chuis[i] = self.children[i].render();
+            });
+            ui.childUIs = [];
+            for (var i in chuis) {
+                chuis[i].parentUI = ui;
+                ui.childUIs[i] = chuis[i];
+            }
+            selectable(ui);
+            ui.expr = self;
+            return ui;
+        },
+    }, xs);
+};
+
 var apply = function (x,y) {
     var outer;
-    outer = {
+    outer = new Codon({
         children: [x,y],
-        render: function (v) {
+        createUI: function (v) {
             return $('<div class="element deselected"/>').append(
                 $('<table/>').append(
                     $('<tr/>').append(
                         $('<td/>').append(v(0))).append(
                         $('<td/>').append(v(1)))));
         },
-        assumptions: function() { return outer.children[0].assumptions().concat(outer.children[1].assumptions()) },
+        assumptions: function() { 
+            return outer.children[0].assumptions().concat(outer.children[1].assumptions());
+        },
         
         commands: {
             left: function (ui) { select(ui.children[0]) },
             right: function (ui) { select(ui.children[1]) },
         },
-    };
+    });
     return outer;
 };
 
 var varref = function (ref) {
     var outer;
-    outer = {
+    outer = new Codon({
         children: [],
-        render: function(v) {
+        createUI: function(v) {
             return $('<div class="element deselected"/>').append(ref.name);
         },
         assumptions: function() { return [ref] },
@@ -85,8 +112,8 @@ var varref = function (ref) {
                 input.focus();
                 outer.ui.replaceWith(input);
             },
-        },
-    };
+        }
+    });
     return outer;
 };
 
@@ -102,10 +129,10 @@ var solovar = function (name) {
 
 var substitution = function (free, arg, body) {
     var outer; 
-    outer = {
+    outer = new Codon({
         free: free,
         children: [ arg, body ],
-        render: function (v) {
+        createUI: function (v) {
             return $('<div class="element deselected" style="border: double"/>').append(
                 $('<table/>').append(
                     $('<tr/>').append(
@@ -125,11 +152,11 @@ var substitution = function (free, arg, body) {
         },
         
         commands: {
-            down: function() {
-                select(outer.children[1].ui);
+            down: function(ui) {
+                select(ui.children[1]);
             },
         },
-    };
+    });
     return outer;
 };
 
@@ -142,19 +169,6 @@ var replace = function (src, target) {
             }
         }
     }
-};
-
-var makeUI = function (x) {
-    var ui = x.render(function (e) {
-        var r = makeUI(x.children[e]);
-        e.parent = x;
-        return r;
-    });
-
-    ui.expr = x;
-    selectable(ui);
-
-    return ui;
 };
 
 var globalCommands = {
@@ -199,7 +213,7 @@ var xvar = variable("x");
 var ds = apply(substitution("z",solovar("w"),apply(varref(xvar), solovar("z"))), varref(xvar));
 
 var refresh = function() {
-    $('#content').html(makeUI(ds));
+    $('#content').html(ds.render());
 };
 
 refresh();
