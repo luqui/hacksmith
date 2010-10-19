@@ -15,11 +15,34 @@ var select = function (x) {
     x.addClass('selected');
     x.removeClass('deselected');
     selected = x;
+    
     $('#assumptions').empty();
     var ass = x.expr.assumptions();
     for (var i in ass) {
         $('#assumptions').append(ass[i].name);
     }
+
+    $('#history').empty();
+    for (var i in srcMorphisms[x.expr.id]) {
+        (function () {
+            var mor = srcMorphisms[x.expr.id][i];
+            $('#history').append(
+                $('<button/>').append(mor.description + "(" + mor.id + ")").click(function(e) {
+                    change(mor);
+                }));
+        })();
+    }
+    for (var i in targetMorphisms[x.expr.id]) { 
+        (function () {
+            var mor = targetMorphisms[x.expr.id][i];
+            $('#history').append(
+                $('<button/>').append("Undo [" + mor.description + "(" + mor.id + ")]").click(function(e) {
+                    change(Morphism(mor.target, mor.src, "Undo [" + mor.description + "(" + mor.id + ")]"));
+                }));
+        })();
+    }
+
+    console.log("Selected ", x);
 };
 
 var selectable = function (x) {
@@ -45,6 +68,11 @@ var incorporate = function(into, xs) {
     return into;
 };
 
+
+var srcMorphisms = {};
+var targetMorphisms = {};
+
+
 var idCounter = 0;
 
 var Codon = function(xs) {
@@ -68,7 +96,6 @@ var Codon = function(xs) {
 
         findMorphisms: function(gen, morset) {
             if (this == gen.src) {
-                gen.target.derivation = gen;
                 morset[this.id] = gen.target;
                 return gen; 
             }
@@ -87,36 +114,51 @@ var Codon = function(xs) {
             }
             if (seen) {
                 var newthis = this.childsub(newchildren);
-                var newmor = new Morphism(this, newthis, gen.desc);
-                newthis.derivation = newmor;
+                var newmor = Morphism(this, newthis, gen.description);
                 
                 morset[this.id] = newthis;
                 return newmor;
             }
         },
 
-        renderNewMorphisms: function(ui, morset) {
+        renderNewMorphisms: function(ui, mor, morset) {
             if (morset[this.id] == null) {
                 return ui; 
             }
             
             var chuis = [];
             var self = this;
-            var newui = morset[this.id].createUI(function (i) {
-                return chuis[i] = self.children[i].renderNewMorphisms(ui.childUIs[i], morset);
-            });
-            newui.childUIs = chuis;
-            for (var i in chuis) {
-                chuis[i].parentUI = newui;
+            var newui;
+            if (this == mor.src) {
+                newui = morset[this.id].render();
             }
-            newui.expr = morset[this.id];
+            else {
+                newui = morset[this.id].createUI(function (i) {
+                    return chuis[i] = self.children[i].renderNewMorphisms(ui.childUIs[i], mor, morset);
+                });
+                newui.childUIs = chuis;
+                for (var i in chuis) {
+                    chuis[i].parentUI = newui;
+                }
+                selectable(newui);
+                newui.expr = morset[this.id];
+            };
+            if (ui == selected) { console.log("New selection"); select(newui); }
             return newui;
         },
     }, xs);
 };
 
+var morphismCount = 0;
+
 var Morphism = function(a,b,desc) {
-    return { src: a, target: b, description: desc };
+    var mor = { src: a, target: b, description: desc, id: morphismCount };
+    morphismCount += 1;
+    if (srcMorphisms[a.id] == null) { srcMorphisms[a.id] = []; }
+    srcMorphisms[a.id].push(mor);
+    if (targetMorphisms[b.id] == null) { targetMorphisms[b.id] = []; }
+    targetMorphisms[b.id].push(mor);
+    return mor;
 };
 
 var apply = function (x,y) {
@@ -158,13 +200,12 @@ var variable = function (name) {
 
         commands: {
             e: function (ui) {
-                deselect();
                 var input = $('<input/>');
                 input.attr('value', outer.name);
                 var self = this;
                 input.keypress(function(e) {
                     if (e.which == 13) {
-                        change(new Morphism(self, variable(input.attr('value'))));
+                        change(Morphism(self, variable(input.attr('value')), "Rename " + outer.name + " to " + input.attr('value')));
                     }
                 });
                 ui.empty();
@@ -214,17 +255,6 @@ var substitution = function (free, arg, body) {
         childsub: function(ch) { return substitution(ch[0], ch[1], ch[2]); }
     });
     return outer;
-};
-
-var replace = function (src, target) {
-    var p = src.parent;
-    if (p) {
-        for (var i in p) {
-            if (p[i] == src) {
-                p[i] = target;
-            }
-        }
-    }
 };
 
 var globalCommands = {
@@ -279,7 +309,7 @@ refresh();
 var change = function(mor) {
     var set = {};
     ds.findMorphisms(mor, set);
-    dsui = ds.renderNewMorphisms(dsui, set);
+    dsui = ds.renderNewMorphisms(dsui, mor, set);
     ds = dsui.expr;
     $('#content').html(dsui);
 };
