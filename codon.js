@@ -22,21 +22,22 @@ var select = function (x) {
         $('#assumptions').append(ass[i].name);
     }
 
-    $('#history').empty();
+    $('#history_redo').empty();
     for (var i in srcMorphisms[x.expr.id]) {
         (function () {
             var mor = srcMorphisms[x.expr.id][i];
-            $('#history').append(
+            $('#history_redo').append(
                 $('<button/>').append(mor.description + "(" + mor.id + ")").click(function(e) {
                     change(mor);
                 }));
         })();
     }
+    $('#history_undo').empty();
     for (var i in targetMorphisms[x.expr.id]) { 
         (function () {
             var mor = targetMorphisms[x.expr.id][i];
-            $('#history').append(
-                $('<button/>').append("Undo [" + mor.description + "(" + mor.id + ")]").click(function(e) {
+            $('#history_undo').append(
+                $('<button/>').append(mor.description + "(" + mor.id + ")").click(function(e) {
                     change(Morphism(mor.target, mor.src, "Undo [" + mor.description + "(" + mor.id + ")]"));
                 }));
         })();
@@ -203,7 +204,8 @@ var variable = function (name) {
                 var input = $('<input/>');
                 input.attr('value', outer.name);
                 var self = this;
-                input.keypress(function(e) {
+                input.keyup(function(e) {
+                    e.stopPropagation();
                     if (e.which == 13) {
                         change(Morphism(self, variable(input.attr('value')), "Rename " + outer.name + " to " + input.attr('value')));
                     }
@@ -277,7 +279,7 @@ var keycodes = {
     40: 'down',
 };
 
-$(document).keydown(function(e) {
+$(document).keyup(function(e) {
     console.log("Key " + e.which);
     if (selected != null) {
         var code = keycodes[e.which];
@@ -313,6 +315,5 @@ var change = function(mor) {
     ds = dsui.expr;
     $('#content').html(dsui);
 };
-
 
 });
