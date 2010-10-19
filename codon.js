@@ -22,28 +22,57 @@ var select = function (x) {
         $('#assumptions').append(ass[i].name);
     }
 
-    $('#history_redo').empty();
-    for (var i in srcMorphisms[x.expr.id]) {
-        (function () {
-            var mor = srcMorphisms[x.expr.id][i];
-            $('#history_redo').append(
-                $('<button/>').append(mor.description + "(" + mor.id + ")").click(function(e) {
-                    change(mor);
-                }));
-        })();
-    }
-    $('#history_undo').empty();
-    for (var i in targetMorphisms[x.expr.id]) { 
-        (function () {
-            var mor = targetMorphisms[x.expr.id][i];
-            $('#history_undo').append(
-                $('<button/>').append(mor.description + "(" + mor.id + ")").click(function(e) {
-                    change(Morphism(mor.target, mor.src, "Undo [" + mor.description + "(" + mor.id + ")]"));
-                }));
+    $('#history').empty();
+    $('#history').append(drawHistory(x.expr));
+};
+
+var drawHistory = function (root) {
+    var mark = {};
+
+    var structure = {
+        expr: root,
+        back: [],
+        forward: [],
+        description: 'You are here',
+    };
+
+    var queue = [{ structure: structure, parent: null, side: null }];
+    while (queue.length > 0) {
+        (function() {
+            var elem = queue.shift();
+            if (mark[elem.structure.expr.id]) { return; }
+            mark[elem.structure.expr.id] = true;
+
+            if (elem.parent != null) {
+                elem.parent[elem.side].push(elem.structure);
+            }
+
+            var srcmor = srcMorphisms[elem.structure.expr.id];
+            for (var i in srcmor) {
+                queue.push({ structure: { expr: srcmor[i].target, back: [], forward: [], description: srcmor[i].description }, parent: elem.structure, side: 'forward' });
+            }
+
+            var tarmor = targetMorphisms[elem.structure.expr.id];
+            for (var i in tarmor) {
+                queue.push({ structure: { expr: tarmor[i].src, back: [], forward: [], description: tarmor[i].description }, parent: elem.structure, side: 'back'  });
+            }
         })();
     }
 
-    console.log("Selected ", x);
+    var drawTree = function(tree) {
+        console.log("Drawing", tree);
+        var elem = $('<ul/>');
+        for (var i in tree.forward) {
+            elem.append(drawTree(tree.forward[i]));
+        }
+        elem.append($('<li/>').append($('<button/>').append(tree.description).click(function() { viewExpr(tree.expr) })));
+        for (var i in tree.back) {
+            elem.append(drawTree(tree.back[i]));
+        }
+        return elem;
+    };
+
+    return drawTree(structure);
 };
 
 var selectable = function (x) {
@@ -299,14 +328,8 @@ document.onselectstart = function(e) { return false; }
 
 var xvar = variable("x");
 var zvar = variable("z");
-var ds = apply(substitution(zvar,variable("w"),apply(xvar, zvar)), apply(xvar, zvar));
+var ds;
 var dsui;
-
-var refresh = function() {
-    dsui = ds.render();
-    $('#content').html(dsui);
-};
-refresh();
 
 var change = function(mor) {
     var set = {};
@@ -315,5 +338,14 @@ var change = function(mor) {
     ds = dsui.expr;
     $('#content').html(dsui);
 };
+
+var viewExpr = function(expr) {
+    ds = expr;
+    dsui = ds.render();
+    $('#content').html(dsui);
+    select(dsui);
+};
+
+viewExpr(apply(substitution(zvar,variable("w"),apply(xvar, zvar)), apply(xvar, zvar)));
 
 });
