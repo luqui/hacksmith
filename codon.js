@@ -24,6 +24,16 @@ var select = function (x) {
 
     $('#history').empty();
     $('#history').append(drawHistory(x.expr));
+
+    $('#actions').empty();
+    for (i in x.expr.commands) {
+        (function() {
+            var cmd = x.expr.commands[i];
+            $('#actions').append($('<button/>').append(cmd.description + " (" + i + ")").click(function() {
+                cmd.action.call(x.expr, x);
+            }));         
+        })();
+    }
 };
 
 var drawHistory = function (root) {
@@ -60,7 +70,6 @@ var drawHistory = function (root) {
     }
 
     var drawTree = function(tree) {
-        console.log("Drawing", tree);
         var elem = $('<ul/>');
         for (var i in tree.forward) {
             elem.append(drawTree(tree.forward[i]));
@@ -107,7 +116,7 @@ var idCounter = 0;
 
 var Codon = function(xs) {
     idCounter += 1;
-    return incorporate({
+    var obj = incorporate({
         id: idCounter,
         render: function() {
             var chuis = [];
@@ -173,10 +182,11 @@ var Codon = function(xs) {
                 selectable(newui);
                 newui.expr = morset[this.id];
             };
-            if (ui == selected) { console.log("New selection"); select(newui); }
             return newui;
         },
     }, xs);
+    incorporate(obj.commands, globalCommands);
+    return obj;
 };
 
 var morphismCount = 0;
@@ -208,8 +218,14 @@ var apply = function (x,y) {
         },
         
         commands: {
-            left: function (ui) { select(ui.childUIs[0]) },
-            right: function (ui) { select(ui.childUIs[1]) },
+            left: {
+                description: "Left child",
+                action: function (ui) { select(ui.childUIs[0]) },
+            },
+            right: {
+                description: "Right child",
+                action: function (ui) { select(ui.childUIs[1]) },
+            },
         },
 
         childsub: function(ch) { return apply(ch[0],ch[1]); }
@@ -229,19 +245,22 @@ var variable = function (name) {
         assumptions: function() { return [this] },
 
         commands: {
-            e: function (ui) {
-                var input = $('<input/>');
-                input.attr('value', outer.name);
-                var self = this;
-                input.keyup(function(e) {
-                    e.stopPropagation();
-                    if (e.which == 13) {
-                        change(Morphism(self, variable(input.attr('value')), "Rename " + outer.name + " to " + input.attr('value')));
-                    }
-                });
-                ui.empty();
-                ui.append(input);
-                input.focus();
+            e: {
+                description: "Rename",
+                action: function (ui) {
+                    var input = $('<input/>');
+                    input.attr('value', outer.name);
+                    var self = this;
+                    input.keyup(function(e) {
+                        e.stopPropagation();
+                        if (e.which == 13) {
+                            change(Morphism(self, variable(input.attr('value')), "Rename " + outer.name + " to " + input.attr('value')));
+                        }
+                    });
+                    ui.empty();
+                    ui.append(input);
+                    input.focus();
+                },
             },
         },
 
@@ -275,11 +294,23 @@ var substitution = function (free, arg, body) {
         },
         
         commands: {
-            left: function(ui) {
-                select(ui.childUIs[1]);
+            right: {
+                description: "Argument",
+                action: function(ui) {
+                    select(ui.childUIs[1]);
+                },
             },
-            down: function(ui) {
-                select(ui.childUIs[2]);
+            left: {
+                description: "Parameter",
+                action: function(ui) {
+                    select(ui.childUIs[0]);
+                },
+            },
+            down: {
+                description: "Body",
+                action: function(ui) {
+                    select(ui.childUIs[2]);
+                },
             },
         },
 
@@ -289,10 +320,13 @@ var substitution = function (free, arg, body) {
 };
 
 var globalCommands = {
-    up: function (ui) {
-        if (ui.parentUI) {
-            select(ui.parentUI);
-        }
+    up: {
+        description: "Parent",
+        action: function (ui) {
+            if (ui.parentUI) {
+                select(ui.parentUI);
+            }
+        },
     },
 }
 
@@ -315,10 +349,7 @@ $(document).keyup(function(e) {
         var cmds = selected.expr.commands;
         if (code) {
             if (cmds && cmds[code]) {
-                cmds[code].call(selected.expr, selected);
-            }
-            else if (globalCommands[code]) {
-                globalCommands[code](selected);
+                cmds[code].action.call(selected.expr, selected);
             }
         }
     }
