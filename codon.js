@@ -51,7 +51,7 @@ var apply = function (x,y) {
                         $('<td/>').append(v(0))).append(
                         $('<td/>').append(v(1)))));
         },
-        assumptions: function() { return outer.fun.assumptions().concat(outer.arg.assumptions()) },
+        assumptions: function() { return outer.children[0].assumptions().concat(outer.children[1].assumptions()) },
         
         commands: {
             left: function (ui) { select(ui.children[0]) },
@@ -66,9 +66,9 @@ var varref = function (ref) {
     outer = {
         children: [],
         render: function(v) {
-            return $('<div class="element deselected"/>').append(outer.ref.name);
+            return $('<div class="element deselected"/>').append(ref.name);
         },
-        assumptions: function() { return [outer.ref] },
+        assumptions: function() { return [ref] },
 
         commands: {
             e: function () {
@@ -109,9 +109,9 @@ var substitution = function (free, arg, body) {
             return $('<div class="element deselected" style="border: double"/>').append(
                 $('<table/>').append(
                     $('<tr/>').append(
-                        $('<td/>').append(free + "=").append(v(outer.children[0])))).append(
+                        $('<td/>').append(free + "=").append(v(0)))).append(
                     $('<tr/>').append(
-                        $('<td/>').append(v(outer.children[1])))))
+                        $('<td/>').append(v(1)))))
         },
         assumptions: function() { 
             return flatMap(body.assumptions(), function(x) {
@@ -146,7 +146,7 @@ var replace = function (src, target) {
 
 var makeUI = function (x) {
     var ui = x.render(function (e) {
-        var r = makeUI(e);
+        var r = makeUI(x.children[e]);
         e.parent = x;
         return r;
     });
