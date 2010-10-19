@@ -45,22 +45,72 @@ var incorporate = function(into, xs) {
     return into;
 };
 
+var idCounter = 0;
+
 var Codon = function(xs) {
+    idCounter += 1;
     return incorporate({
+        id: idCounter,
         render: function() {
             var chuis = [];
             var self = this;
             var ui = self.createUI(function (i) {
                 return chuis[i] = self.children[i].render();
             });
-            ui.childUIs = [];
+            ui.childUIs = chuis;
             for (var i in chuis) {
                 chuis[i].parentUI = ui;
-                ui.childUIs[i] = chuis[i];
             }
             selectable(ui);
             ui.expr = self;
             return ui;
+        },
+
+        findMorphisms: function(gen, morset) {
+            if (this == gen.src) {
+                gen.target.derivation = gen;
+                morset[this.id] = gen.target;
+                return gen; 
+            }
+
+            var newchildren = [];
+            var seen = false;
+            for (var i in this.children) {
+                var mor = this.children[i].findMorphisms(gen, morset);
+                if (mor != null) {
+                    seen = true;
+                    newchildren[i] = mor.target;
+                }
+                else {
+                    newchildren[i] = this.children[i];
+                }
+            }
+            if (seen) {
+                var newthis = this.childsub(newchildren);
+                var newmor = new Morphism(this, newthis, gen.desc);
+                newthis.derivation = newmor;
+                
+                morset[this.id] = newthis;
+                return newmor;
+            }
+        },
+
+        renderNewMorphisms: function(ui, morset) {
+            if (morset[this.id] == null) {
+                return ui; 
+            }
+            
+            var chuis = [];
+            var self = this;
+            var newui = morset[this.id].createUI(function (i) {
+                return chuis[i] = self.children[i].renderNewMorphisms(ui.childUIs[i], morset);
+            });
+            newui.childUIs = chuis;
+            for (var i in chuis) {
+                chuis[i].parentUI = newui;
+            }
+            newui.expr = morset[this.id];
+            return newui;
         },
     }, xs);
 };
@@ -73,6 +123,7 @@ var apply = function (x,y) {
     var outer;
     outer = new Codon({
         children: [x,y],
+        nice: "(" + x.nice + " " + y.nice + ")",
         createUI: function (v) {
             return $('<div class="element deselected"/>').append(
                 $('<table/>').append(
@@ -88,66 +139,62 @@ var apply = function (x,y) {
             left: function (ui) { select(ui.childUIs[0]) },
             right: function (ui) { select(ui.childUIs[1]) },
         },
-    });
-    return outer;
-};
 
-var varref = function (ref) {
-    var outer;
-    outer = new Codon({
-        children: [],
-        createUI: function(v) {
-            return $('<div class="element deselected"/>').append(ref.name);
-        },
-        assumptions: function() { return [ref] },
-
-        commands: {
-            e: function () {
-                deselect();
-                var input = $('<input/>');
-                input.attr('value', ref.name);
-                input.keypress(function(e) {
-                    if (e.which == 13) {
-                        ref.name = input.attr('value');
-                        refresh();
-                        select(outer.ui);
-                    }
-                });
-                input.focus();
-                outer.ui.replaceWith(input);
-            },
-        }
+        childsub: function(ch) { return apply(ch[0],ch[1]); }
     });
     return outer;
 };
 
 var variable = function (name) {
-    return {
+    var outer;
+    outer = new Codon({
         name: name,
-    };
-};
+        nice: name,
+        children: [],
+        createUI: function(v) {
+            return $('<div class="element deselected"/>').append(outer.name);
+        },
+        assumptions: function() { return [this] },
 
-var solovar = function (name) {
-    return varref(variable(name));
+        commands: {
+            e: function (ui) {
+                deselect();
+                var input = $('<input/>');
+                input.attr('value', outer.name);
+                var self = this;
+                input.keypress(function(e) {
+                    if (e.which == 13) {
+                        change(new Morphism(self, variable(input.attr('value'))));
+                    }
+                });
+                ui.empty();
+                ui.append(input);
+                input.focus();
+            },
+        },
+
+        childsub: function(ch) { error("Impossible: no children"); }
+    });
+    return outer;
 };
 
 var substitution = function (free, arg, body) {
     var outer; 
     outer = new Codon({
-        free: free,
-        children: [ arg, body ],
+        children: [ free, arg, body ],
+        nice: "(" + free.nice + "=" + arg.nice + " in " + body.nice + ")",
         createUI: function (v) {
             return $('<div class="element deselected" style="border: double"/>').append(
                 $('<table/>').append(
                     $('<tr/>').append(
-                        $('<td/>').append(free + "=").append(v(0)))).append(
+                        $('<td/>').append(v(0)).append("=").append(v(1)))).append(
                     $('<tr/>').append(
-                        $('<td/>').append(v(1)))))
+                        $('<td/>').append(v(2)))))
         },
         assumptions: function() { 
             return flatMap(body.assumptions(), function(x) {
-                if (x == outer.free) {
-                    return outer.children[0].assumptions();
+                if (x == outer.children[0]) {
+                    return outer.children[1].assumptions();
                 }
                 else {
                     return [x];
@@ -157,12 +204,14 @@ var substitution = function (free, arg, body) {
         
         commands: {
             left: function(ui) {
-                select(ui.childUIs[0]);
-            },
-            down: function(ui) {
                 select(ui.childUIs[1]);
             },
+            down: function(ui) {
+                select(ui.childUIs[2]);
+            },
         },
+
+        childsub: function(ch) { return substitution(ch[0], ch[1], ch[2]); }
     });
     return outer;
 };
@@ -205,7 +254,7 @@ $(document).keydown(function(e) {
         var cmds = selected.expr.commands;
         if (code) {
             if (cmds && cmds[code]) {
-                cmds[code](selected);
+                cmds[code].call(selected.expr, selected);
             }
             else if (globalCommands[code]) {
                 globalCommands[code](selected);
@@ -217,12 +266,23 @@ $(document).keydown(function(e) {
 document.onselectstart = function(e) { return false; }
 
 var xvar = variable("x");
-var ds = apply(substitution("z",solovar("w"),apply(varref(xvar), solovar("z"))), varref(xvar));
+var zvar = variable("z");
+var ds = apply(substitution(zvar,variable("w"),apply(xvar, zvar)), apply(xvar, zvar));
+var dsui;
 
 var refresh = function() {
-    $('#content').html(ds.render());
+    dsui = ds.render();
+    $('#content').html(dsui);
+};
+refresh();
+
+var change = function(mor) {
+    var set = {};
+    ds.findMorphisms(mor, set);
+    dsui = ds.renderNewMorphisms(dsui, set);
+    ds = dsui.expr;
+    $('#content').html(dsui);
 };
 
-refresh();
 
 });
