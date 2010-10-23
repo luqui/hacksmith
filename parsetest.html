@@ -1,0 +1,45 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Codon Parse Test</title>
+    <script type="text/javascript" src="http://code.jquery.com/jquery.js"></script>
+    <script type="text/javascript" src="codon-parser.js"></script>
+
+<script>
+$(function() {
+
+var grammar = [
+    new Production('expr',    nonterminal('addExpr')),
+    new Production('addExpr', nonterminal('addExpr'), term('+'), nonterminal('mulExpr')),
+    new Production('addExpr', nonterminal('mulExpr')),
+    new Production('mulExpr', nonterminal('mulExpr'), term('*'), nonterminal('term')),
+    new Production('mulExpr', nonterminal('term')),
+    new Production('term',    term('('), nonterminal('expr'), term(')')),
+    new Production('term',    nonterminal('number')),
+    new Production('number',  nonterminal('number'), nonterminal('digit')),
+    new Production('number',  nonterminal('digit')),
+    new Production('digit',   term('0')),
+    new Production('digit',   term('1')),
+];
+
+var state = new ParseState();
+state.add(new DotProduction(grammar[0], 0));
+state.fill(grammar);
+$('#output').text(state.toString());
+
+$('#textBox').keypress(function (e) {
+    state = state.nextState(grammar, String.fromCharCode(e.which));
+    state.fill(grammar);
+    $('#output').text(state.toString());
+    e.stopPropagation();
+});
+
+});
+</script>
+
+  </head>
+  <body>
+   <input type="text" id="textBox" />
+   <pre id="output"></pre>
+  </body>
+</html>
