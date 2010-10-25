@@ -58,7 +58,7 @@ function Expr(head, arguments) {
     this.head = head;
     this.arguments = arguments;
 
-    this.substitute = function(source, target) {
+    this.substitute = function(subs) {
         return new Expr(this.head, this.arguments.map(function (x) { return x.substitute(subs); }));
     };
     this.freeVars = function(out) {
