@@ -8,23 +8,38 @@
 <script>
 $(function() {
 
-var happy = new Symbol("happy");
-var influences = new Symbol("influences");
-var blue  = new Symbol("blue");
-var red   = new Symbol("red");
+function rule(vars, prop, rhs) {
+    return new Rule(arrayToSet(vars), prop, rhs);
+}
 
-var y = new Symbol("y");
-var z = new Symbol("z");
+function prop(head, args) {
+    return new Proposition(head, args);
+}
 
-var rules = [
-    new Rule({}, new Proposition(happy, [red]), []),
-    new Rule({}, new Proposition(influences, [red, blue]), []),
-    new Rule(arrayToSet([y,z]), new Proposition(happy, [z]), 
-                [ new Proposition(influences, [y,z]), new Proposition(happy, [y]) ]),
-];
+function func(head, args) {
+    return new Expr(head, args);
+}
 
 var x = new Symbol("x");
-var states = [new State(x, arrayToSet([x]), [new Proposition(happy, [x])])];
+var y = new Symbol("y");
+var v_expr = new Symbol("expr");
+var v_term = new Symbol("term");
+var v_plus = new Symbol("plus");
+var v_group = new Symbol("group");
+var v_zero = new Symbol("zero");
+var v_one = new Symbol("one");
+
+
+var rules = [
+    rule([x], prop(v_expr, [x]), [ prop(v_term, [x]) ]),
+    rule([x,y], prop(v_expr, [func(v_plus, [x,y])]), [ prop(v_expr, [x]), prop(v_term, [y]) ]),
+    rule([x], prop(v_term, [func(v_group, [x])]), [ prop(v_expr, [x]) ]),
+    rule([], prop(v_term, [v_zero]), []),
+    rule([], prop(v_term, [v_one]), []),
+]
+
+var x = new Symbol("x");
+var states = [new State(x, arrayToSet([x]), [prop(v_expr, [x])])];
 
 function compute() {
     var newstates = [];
