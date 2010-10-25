@@ -9,12 +9,18 @@
 $(function() {
 
 var happy = new Symbol("happy");
+var influences = new Symbol("influences");
 var blue  = new Symbol("blue");
 var red   = new Symbol("red");
 
+var y = new Symbol("y");
+var z = new Symbol("z");
+
 var rules = [
     new Rule({}, new Proposition(happy, [red]), []),
-    new Rule({}, new Proposition(happy, [blue]), []),
+    new Rule({}, new Proposition(influences, [red, blue]), []),
+    new Rule(arrayToSet([y,z]), new Proposition(happy, [z]), 
+                [ new Proposition(influences, [y,z]), new Proposition(happy, [y]) ]),
 ];
 
 var x = new Symbol("x");

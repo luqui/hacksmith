@@ -31,25 +31,19 @@ function Symbol(name) {
         log("Unify " + this + " = " + b + "  (" + keys(vars).join(",") + ")");
         
         if (vars[this.id]) {
-            log(this + " is a variable");
             if (subs[this.id]) {
-                log(this + " is substituted for " + subs[this.id]);
                 return subs[this.id].unify(b, vars, subs);
             }
             else {
-                log(this + " is free");
                 subs[this.id] = b;
                 return this;
             }
         }
         else {
-            log(this + " is a constant");
             if (b instanceof Symbol && vars[b.id]) {
-                log(b + " is a variable");
                 return b.unify(this, vars, subs);
             }
             else {
-                log(b + " is some crap");
                 return null;
             }
         }
@@ -65,7 +59,7 @@ function Expr(head, arguments) {
     this.arguments = arguments;
 
     this.substitute = function(source, target) {
-        return new Expr(this.head, this.arguments.map(function (x) { x.substitute(subs); }));
+        return new Expr(this.head, this.arguments.map(function (x) { return x.substitute(subs); }));
     };
     this.freeVars = function(out) {
         for (i in arguments) {
@@ -118,12 +112,11 @@ function Proposition(head, arguments) {
     this.arguments = arguments;
 
     this.substitute = function(subs) {
-        return new Proposition(this.head, this.arguments.map(function (x) { x.substitute(subs) }));
+        return new Proposition(this.head, this.arguments.map(function (x) { return x.substitute(subs) }));
     };
 
     this.unify = function(b, vars, subs) {
         if (b instanceof Symbol) { 
-            log("Swap " + this + " <-> " + b);
             return b.unify(this, vars, subs); 
         }
         else if (b instanceof Proposition) {
@@ -185,12 +178,9 @@ function State(head, variables, propositions) {
                 
                 var subs = {};
 
-                log("vars = " + keys(this.variables).join(","));
-                log("newvars = " + keys(newvars).join(","));
-                
                 var splice = rule.apply(prop, newvars, subs);
                 if (splice) {
-                    log("Success");
+                    log("Success = " + splice + " (" + keys(newvars).join(",") + ")");
                     for (var i in splice) {
                         splice[i] = splice[i].substitute(subs);
                     }
@@ -219,7 +209,7 @@ function State(head, variables, propositions) {
         for (var i in this.variables) {
             if (!subs[i]) { newvars[i] = true; }
         }
-        for (var i in this.vars) {
+        for (var i in vars) {
             if (!subs[i]) { newvars[i] = true; }
         }
 
@@ -238,21 +228,18 @@ function Rule(variables, lhs, rhs) {
 
     this.clone = function(vars) {
         var subs = {};
-        for (var i in variables) {
+        for (var i in this.variables) {
             var v = new Symbol("@");
             subs[i] = v;
             vars[v.id] = true;
         }
-        return new Rule([], lhs.substitute(subs), rhs.map(function (x) { x.substitute(subs) }));
+        return new Rule([], this.lhs.substitute(subs), this.rhs.map(function (x) { return x.substitute(subs) }));
     };
     this.apply = function(prop, vars, subs) {
         var newvars = [];
         var clone = this.clone(newvars);
 
-        log("Applying rule " + this);
-        log("Variables = " + keys(vars).join(","));
-
-        if (this.lhs.unify(prop, $.extend(vars, newvars), subs)) {
+        if (clone.lhs.unify(prop, $.extend(vars, newvars), subs)) {
             return clone.rhs;
         }
         else {
