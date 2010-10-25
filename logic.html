@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>Codon Logic Test</title>
+    <script type="text/javascript" src="http://code.jquery.com/jquery.js"></script>
+    <script type="text/javascript" src="codon-logic.js"></script>
+
+<script>
+$(function() {
+
+var happy = new Symbol("happy");
+var blue  = new Symbol("blue");
+var red   = new Symbol("red");
+
+var rules = [
+    new Rule({}, new Proposition(happy, [red]), []),
+    new Rule({}, new Proposition(happy, [blue]), []),
+];
+
+var x = new Symbol("x");
+var states = [new State(x, arrayToSet([x]), [new Proposition(happy, [x])])];
+
+function compute() {
+    var newstates = [];
+    for (var i in states) {
+        newstates.push.apply(newstates, states[i].substates(rules));
+    }
+    states = newstates;
+    display();
+}
+
+function display() {
+    $('#output').text(states.join("\n"));
+}
+
+$('#computeButton').click(compute);
+
+display();
+
+});
+</script>
+
+  </head>
+  <body>
+   <button id="computeButton">Compute</button>
+   <pre id="output"></pre>
+  </body>
+</html>
